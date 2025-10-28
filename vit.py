@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from data_schemes import ViTConfig
+
 
 class AttentionBlock(nn.Module):
     def __init__(self, n_heads, hid_dim, p, *args, **kwargs) -> None:
@@ -78,35 +80,32 @@ class CustomViTEncoderLayer(nn.Module):
 
 
 class CustomViT(nn.Module):
-    def __init__(
-        self,
-        input_dim,
-        out_dim,
-        h_split,
-        v_split,
-        n_heads,
-        hid_dim,
-        p,
-        up_scale,
-        n_layers,
-        *args,
-        **kwargs
-    ) -> None:
+    def __init__(self, config: ViTConfig, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.hid_dim = hid_dim
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, hid_dim), requires_grad=True)
-        self.embedding = nn.Linear(input_dim, hid_dim)
-        self.h_split, self.v_split = h_split, v_split
-        self.v_pos_emb = nn.Parameter(torch.zeros(v_split, hid_dim), requires_grad=True)
-        self.h_pos_emb = nn.Parameter(torch.zeros(h_split, hid_dim), requires_grad=True)
+        self.config = config
+
+        self.hid_dim = config.hid_dim
+        self.cls_token = nn.Parameter(
+            torch.zeros(1, 1, config.hid_dim), requires_grad=True
+        )
+        self.embedding = nn.Linear(config.input_dim, config.hid_dim)
+        self.h_split, self.v_split = config.h_split, config.v_split
+        self.v_pos_emb = nn.Parameter(
+            torch.zeros(config.v_split, config.hid_dim), requires_grad=True
+        )
+        self.h_pos_emb = nn.Parameter(
+            torch.zeros(config.h_split, config.hid_dim), requires_grad=True
+        )
         self.vit_encoder = nn.ModuleList(
             [
-                CustomViTEncoderLayer(n_heads, hid_dim, p, up_scale)
-                for _ in range(n_layers)
+                CustomViTEncoderLayer(
+                    config.n_heads, config.hid_dim, config.p, config.up_scale
+                )
+                for _ in range(config.n_layers)
             ]
         )
-        self.out = nn.Linear(hid_dim, out_dim)
+        self.out = nn.Linear(config.hid_dim, config.out_dim)
 
         nn.init.normal_(self.cls_token, std=0.02)
         nn.init.normal_(self.v_pos_emb, std=0.02)
@@ -143,9 +142,9 @@ if __name__ == "__main__":
     from einops import rearrange
 
     x = torch.randn(100, 200)
-    x = rearrange(x, "(H p1) (W p2) -> (H W) (p1 p2)", p1=5, p2=10).unsqueeze(0)
+    x = rearrange(x, "(H p1) (W p2) -> (H W) (p1 p2)", p1=10, p2=20).unsqueeze(0)
     print(x.shape)
-    model = CustomViT(50, 2, 20, 20, 5, 10, 0.05, 4, 10)
+    model = CustomViT(ViTConfig())
     print(model)
     y = model(x)
     print(y.shape)
