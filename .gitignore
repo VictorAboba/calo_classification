@@ -5,3 +5,5 @@
 *.npy
 *.npz
 dataset/
+*.pkl
+*.log
