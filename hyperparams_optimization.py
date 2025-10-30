@@ -2,6 +2,7 @@ import multiprocessing as mp
 import yaml
 from math import ceil
 import json
+import os
 
 from optuna import create_study, Trial, TrialPruned
 from accelerate import Accelerator
@@ -13,7 +14,7 @@ from data_routine import get_dataloader_from_path
 from data_schemes import ViTConfig, OptimizerConfig
 from model_processes import train, inference
 from optuna_utils import create_trial_from_dict
-from constants import OPTUNA_FILE, TARGET_SHAPE, TRAIN_DATASET_LEN_80_360
+from constants import OPTUNA_FILE, TARGET_SHAPE, NUM_CHANNELS, TRAIN_DATASET_LEN_80_360
 
 
 def run_train_in_process(trial: Trial):
@@ -43,7 +44,7 @@ def run_train_in_process(trial: Trial):
 def run_train(trial_params: dict, trial_num, q):
     model_config = ViTConfig.model_validate(trial_params)
     patch_size = trial_params.pop("patch_size")
-    model_config.input_dim = patch_size**2
+    model_config.input_dim = patch_size**2 * NUM_CHANNELS
     model_config.h_split = int(TARGET_SHAPE[0] / patch_size)
     model_config.v_split = int(TARGET_SHAPE[1] / patch_size)
     model = CustomViT(model_config)
@@ -76,7 +77,7 @@ def run_train(trial_params: dict, trial_num, q):
         trial_params["batch_size"],
     )
 
-    # accelerator = Accelerator()
+    accelerator = Accelerator()
     try:
         train_result: dict = train(
             model,
@@ -85,11 +86,12 @@ def run_train(trial_params: dict, trial_num, q):
             train_dataloader,
             val_dataloader,
             trial_params["num_epoch"],
-            # accelerator,
+            accelerator,
         )  # type: ignore
-        test_result = inference(model, test_dataloader)  # , accelerator)
+        test_result = inference(model, test_dataloader, accelerator)
         train_result["test"] = test_result
 
+        os.makedirs("optuna_result", exist_ok=True)
         with open(f"optuna_result/{trial_num}_trial.json", "w") as file:
             json.dump(train_result, file)
         q.put(train_result["val"][-1]["loss"])

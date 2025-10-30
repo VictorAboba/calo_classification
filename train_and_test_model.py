@@ -16,6 +16,7 @@ from constants import (
     MODEL_CONFIG_FILE,
     OPTIMIZER_CONFIG_FILE,
     TARGET_SHAPE,
+    NUM_CHANNELS,
     TRAIN_DATASET_LEN_80_360,
 )
 
@@ -38,7 +39,7 @@ if __name__ == "__main__":
         yaml.load(open(MODEL_CONFIG_FILE, "r"), yaml.FullLoader)
     )
     patch_size = int(TARGET_SHAPE[0] / model_config.h_split)
-    model_config.input_dim = patch_size**2
+    model_config.input_dim = patch_size**2 * NUM_CHANNELS
     model = CustomViT(model_config)
 
     optimizer_config = OptimizerConfig.model_validate(

@@ -8,6 +8,7 @@ OPTIMIZER_CONFIG_FILE = "optimizer_config.yaml"
 OPTUNA_FILE = "optuna_config.yaml"
 
 TARGET_SHAPE = (120, 30)  # W H for cv2.resize
+NUM_CHANNELS = 2
 
 TRAIN_DATASET_LEN_80_360 = 2079400
 VAL_DATASET_LEN_80_360 = 594100
