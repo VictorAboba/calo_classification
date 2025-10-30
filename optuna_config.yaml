@@ -1,0 +1,50 @@
+patch_size:
+  type: list
+  values: [5, 10, 15, 30]
+hid_dim:
+  type: list
+  values: [64, 128, 256, 512]
+n_heads:
+  type: list
+  values: [2, 4, 8, 16]
+p:
+  type: float
+  min: 0
+  max: 0.5
+  log: false
+up_scale:
+  type: int
+  min: 2
+  max: 8
+n_layers:
+  type: int
+  min: 3
+  max: 20
+lr:
+  type: float
+  min: 1e-6
+  max: 1e-3
+  log: true
+beta1:
+  type: float
+  min: 0.5
+  max: 0.999
+  log: false
+beta2:
+  type: float
+  min: 0.5
+  max: 0.999
+  log: false
+weight_decay:
+  type: float
+  min: 0
+  max: 0.1
+  log: false
+num_epoch:
+  type: int
+  min: 10
+  max: 100
+batch_size:
+  type: int
+  min: 1
+  max: 50
