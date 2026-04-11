@@ -1,0 +1,18 @@
+[project]
+name = "calo-classification"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "accelerate>=1.13.0",
+    "datasets>=4.8.4",
+    "einops>=0.8.2",
+    "opencv-python>=4.13.0.92",
+    "optuna>=4.8.0",
+    "pillow>=12.2.0",
+    "pydantic>=2.12.5",
+    "scikit-learn>=1.8.0",
+    "torch>=2.11.0",
+    "transformers>=5.5.3",
+]

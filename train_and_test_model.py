@@ -2,6 +2,7 @@ import yaml
 from math import ceil
 import json
 import argparse
+import os
 
 from accelerate import Accelerator
 from torch.optim import AdamW
@@ -14,10 +15,10 @@ from data_schemes import ViTConfig, OptimizerConfig
 from model_processes import train, inference
 from constants import (
     MODEL_CONFIG_FILE,
+    EXPERIMENT_CONFIG_FILE,
     OPTIMIZER_CONFIG_FILE,
     TARGET_SHAPE,
     NUM_CHANNELS,
-    TRAIN_DATASET_LEN_80_360,
 )
 
 
@@ -35,6 +36,8 @@ def parse_args():
 if __name__ == "__main__":
     train_args = parse_args()
 
+    experiment_config = yaml.load(open(EXPERIMENT_CONFIG_FILE, "r"), yaml.FullLoader)
+
     model_config = ViTConfig.model_validate(
         yaml.load(open(MODEL_CONFIG_FILE, "r"), yaml.FullLoader)
     )
@@ -47,28 +50,32 @@ if __name__ == "__main__":
     )
     optimizer = AdamW(model.parameters(), **optimizer_config.to_dict())
 
-    total_train_steps = (
-        ceil(TRAIN_DATASET_LEN_80_360 / train_args.batch_size) * train_args.num_epoch
-    )
-    warmup_steps = int(total_train_steps * 0.05)
-    scheduler = get_cosine_schedule_with_warmup(
-        optimizer, num_training_steps=total_train_steps, num_warmup_steps=warmup_steps
-    )
-
     train_dataloader = get_dataloader_from_path(
-        "dataset/80_360_MeV_parquet/dataset_train.parquet",
+        experiment_config["train_data"],
+        patch_size,
         False,
         train_args.batch_size,
     )
     val_dataloader = get_dataloader_from_path(
-        "dataset/80_360_MeV_parquet/dataset_val.parquet",
+        experiment_config["val_data"],
+        patch_size,
         False,
         train_args.batch_size,
     )
     test_dataloader = get_dataloader_from_path(
-        "dataset/80_360_MeV_parquet/dataset_test.parquet",
+        experiment_config["test_data"],
+        patch_size,
         False,
         train_args.batch_size,
+    )
+
+    total_train_steps = (
+        ceil(len(train_dataloader.dataset) / train_args.batch_size)
+        * train_args.num_epoch
+    )
+    warmup_steps = int(total_train_steps * 0.05)
+    scheduler = get_cosine_schedule_with_warmup(
+        optimizer, num_training_steps=total_train_steps, num_warmup_steps=warmup_steps
     )
 
     accelerator = Accelerator()
@@ -84,10 +91,16 @@ if __name__ == "__main__":
         early_stopping_epochs=train_args.early_stop_epochs,
         save_best=True,
     )  # type: ignore
-    res = model.load_state_dict(torch.load("best.pt", map_location=accelerator.device))
+    res = model.load_state_dict(
+        torch.load(
+            f"best_{experiment_config['prefix']}.pt", map_location=accelerator.device
+        )
+    )
     print(res)
     test_result = inference(model, test_dataloader, accelerator)
     train_result["test"] = test_result
 
-    with open(f"best_trial.json", "w") as file:
-        json.dump(train_result, file)
+    os.makedirs("models", exist_ok=True)
+
+    with open(f"models/best_trial_{experiment_config['prefix']}.json", "w") as file:
+        json.dump(train_result, file, indent=2)

@@ -114,9 +114,9 @@ class CustomViT(nn.Module):
     def forward(
         self, x: torch.Tensor, need_hidden=False
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        assert (
-            x.shape[1] == self.h_split * self.v_split
-        ), "product of splits must be equal sequence length"
+        assert x.shape[1] == self.h_split * self.v_split, (
+            "product of splits must be equal sequence length"
+        )
         B, L = x.shape[:2]
         x = self.embedding(x)
 

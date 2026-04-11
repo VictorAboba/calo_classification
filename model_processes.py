@@ -1,4 +1,5 @@
 import json
+import yaml
 
 import torch
 from torch import nn
@@ -16,7 +17,7 @@ from accelerate import Accelerator
 from tqdm import tqdm
 import numpy as np
 
-from constants import CLASS_TO_NAME
+from constants import CLASS_TO_NAME, EXPERIMENT_CONFIG_FILE
 
 
 def train(
@@ -31,6 +32,8 @@ def train(
     early_stopping_epochs=5,
     save_best=False,
 ) -> dict | tuple[dict, float]:
+    experiment_config = yaml.load(open(EXPERIMENT_CONFIG_FILE, "r"), yaml.FullLoader)
+
     best_val_loss = float("inf")
     best_epoch = 0
     epochs_without_upgrade = 0
@@ -45,7 +48,7 @@ def train(
         )
     loss_fn = nn.CrossEntropyLoss()
     for epoch in range(1, num_epoch + 1):
-        print(f"{'='*50} Epoch {epoch} {'='*50}")
+        print(f"{'=' * 50} Epoch {epoch} {'=' * 50}")
 
         train_loss_sum = 0
         pbar = tqdm(train_dataloader, desc="Train epoch")
@@ -77,7 +80,7 @@ def train(
         pbar.close()
 
         val_metrics = inference(model, val_dataloader, accelerator)
-        print(json.dumps(val_metrics, indent=4))
+        print(json.dumps(val_metrics, indent=2))
 
         statistic["train"].append(round(train_loss_sum / i, 5))
         statistic["val"].append(val_metrics)
@@ -91,13 +94,18 @@ def train(
                     if accelerator is not None:
                         accelerator.wait_for_everyone()
                         unwrap_model = accelerator.unwrap_model(model)
-                        accelerator.save(unwrap_model.state_dict(), "best.pt")
+                        accelerator.save(
+                            unwrap_model.state_dict(),
+                            f"best_{experiment_config['prefix']}.pt",
+                        )
                     else:
-                        torch.save(model.state_dict(), "best.pt")
+                        torch.save(
+                            model.state_dict(), f"best_{experiment_config['prefix']}.pt"
+                        )
             else:
                 epochs_without_upgrade += 1
             if epochs_without_upgrade >= early_stopping_epochs:
-                print(f"{'='*50} Early stopping on {epoch} epoch {'='*50}")
+                print(f"{'=' * 50} Early stopping on {epoch} epoch {'=' * 50}")
                 print(f"Best epoch: {best_epoch}")
                 return statistic, best_val_loss
 
@@ -143,7 +151,9 @@ def inference(
     avg_loss = round(total_loss / len(total_predictions), 5)
     acc = round(accuracy_score(total_labels, total_predictions), 5)
     recall = round(recall_score(total_labels, total_predictions, average="macro"), 5)  # type: ignore
-    precision = round(precision_score(total_labels, total_predictions, average="macro"), 5)  # type: ignore
+    precision = round(
+        precision_score(total_labels, total_predictions, average="macro"), 5
+    )  # type: ignore
     f1 = round(f1_score(total_labels, total_predictions, average="macro"), 5)  # type: ignore
     roc_auc = round(
         roc_auc_score(total_labels, total_scores, average="macro", multi_class="ovr"), 5
