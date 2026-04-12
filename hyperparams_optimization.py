@@ -90,7 +90,7 @@ def run_train(trial_params: dict, trial_num, q):
 
     accelerator = Accelerator()
     try:
-        train_result: dict = train(
+        train_result, best_val_loss = train(
             model,
             optimizer,
             scheduler,
@@ -98,16 +98,28 @@ def run_train(trial_params: dict, trial_num, q):
             val_dataloader,
             trial_params["num_epoch"],
             accelerator,
-        )  # type: ignore
+            early_stopping=experiment_config["optuna"]["early_stopping"]["enabled"],
+            early_stopping_epochs=experiment_config["optuna"]["early_stopping"][
+                "epochs"
+            ],
+            early_stopping_threshold=experiment_config["optuna"]["early_stopping"][
+                "threshold"
+            ],
+        )
         test_result = inference(model, test_dataloader, accelerator)
         train_result["test"] = test_result
 
-        os.makedirs("optuna_result", exist_ok=True)
+        os.makedirs(f"optuna_result_{experiment_config['prefix']}", exist_ok=True)
         with open(
-            f"optuna_result/{trial_num}_trial_{experiment_config['prefix']}.json", "w"
+            f"optuna_result_{experiment_config['prefix']}/{trial_num}_trial.json", "w"
         ) as file:
-            json.dump(train_result, file, indent=2)
-        q.put(train_result["val"][-1]["loss"])
+            to_save = {
+                "trial_params": trial_params,
+                "train_result": train_result,
+                "best_val_loss": best_val_loss,
+            }
+            json.dump(to_save, file, indent=2)
+        q.put(best_val_loss)
     except Exception as e:
         q.put((-1, e))
         raise Exception(e) from e
@@ -120,12 +132,28 @@ if __name__ == "__main__":
     study = create_study(direction="minimize")
 
     experiment_config = yaml.load(open(EXPERIMENT_CONFIG_FILE, "r"), yaml.FullLoader)
+    optuna_config = yaml.load(open(OPTUNA_FILE, "r"), yaml.FullLoader)
+    print(f"Start optimization with config: {json.dumps(experiment_config, indent=2)}")
+    print("*" * 20)
+    print(f"Optuna config: {json.dumps(optuna_config, indent=2)}")
+    print("*" * 20)
 
     study.optimize(
         run_train_in_process,
         experiment_config["optuna"]["n_trials"],
         gc_after_trial=experiment_config["optuna"]["gc_after_trial"],
     )
+
+    os.makedirs(f"optuna_result_{experiment_config['prefix']}", exist_ok=True)
+    with open(
+        f"optuna_result_{experiment_config['prefix']}/best_trial.json", "w"
+    ) as file:
+        to_save = {
+            "trial_params": study.best_trial.params,
+            "trial_number": study.best_trial.number,
+            "best_val_loss": study.best_trial.value,
+        }
+        json.dump(to_save, file, indent=2)
 
     with open(f"optuna_study_{experiment_config['prefix']}.pkl", "wb") as file:
         pickle.dump(study, file)

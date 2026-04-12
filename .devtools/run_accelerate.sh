@@ -1,1 +1,1 @@
-uv run accelerate launch --config_file accelerate_config.yaml train_and_test_model.py --batch_size 50 --num_epoch 50 --early_stop_epochs 2
+uv run accelerate launch --config_file accelerate_config.yaml train_and_test_model.py --batch_size 50 --num_epoch 50 --early_stop_epochs 2 --early_stop_threshold 0.01

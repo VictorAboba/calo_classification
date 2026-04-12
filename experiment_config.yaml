@@ -2,6 +2,10 @@ prefix: version_1
 optuna:
   n_trials: 20
   gc_after_trial: true
+  early_stopping:
+    enabled: true
+    threshold: 0.01
+    epochs: 3
 train_data: dataset/80_360_MeV_parquet/dataset_train.parquet
 val_data: dataset/80_360_MeV_parquet/dataset_val.parquet
 test_data: dataset/80_360_MeV_parquet/dataset_test.parquet

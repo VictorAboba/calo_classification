@@ -17,21 +17,21 @@ def images_to_patches(
     if isinstance(images, list):
         image_arrays = []
         for image in images:
-            assert isinstance(
-                image, Image.Image
-            ), f"images in the list must be PIL.Image.Image, but it is {type(image)}"
+            assert isinstance(image, Image.Image), (
+                f"images in the list must be PIL.Image.Image, but it is {type(image)}"
+            )
             assert image.mode == "RGB", "images in the list must be in color mode (RGB)"
             image = np.array(image)
             image_arrays.append(image)
         images = np.stack(image_arrays)
 
-    assert (
-        len(images.shape) == 4
-    ), f"images must have shape BСHW, but have {images.shape=}"
+    assert len(images.shape) == 4, (
+        f"images must have shape BСHW, but have {images.shape=}"
+    )
     B, С, H, W = images.shape
-    assert (
-        H % patch_size == 0 and W % patch_size == 0
-    ), f"image's height ({H}) and width ({W}) must be divisible by patch size {patch_size}"
+    assert H % patch_size == 0 and W % patch_size == 0, (
+        f"image's height ({H}) and width ({W}) must be divisible by patch size {patch_size}"
+    )
 
     images = rearrange(
         images,

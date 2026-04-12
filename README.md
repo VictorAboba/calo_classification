@@ -26,8 +26,8 @@ Edit `*_config.yaml` files to set your parameters:
 
 ```bash
 # Run training
-uv run train_and_test_model.py
+uv run accelerate launch train_and_test_model.py --batch_size 50 --num_epoch 50 --early_stop_epochs 2 --early_stop_threshold 0.01
 
 # Hyperparameter optimization
-uv run hyperparams_optimization.py
+uv run accelerate launch hyperparams_optimization.py
 ```

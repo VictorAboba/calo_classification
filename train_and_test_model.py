@@ -27,6 +27,7 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=10)
     parser.add_argument("--num_epoch", type=int, default=10)
     parser.add_argument("--early_stop_epochs", type=int, default=2)
+    parser.add_argument("--early_stop_threshold", type=float, default=0.01)
 
     args = parser.parse_args()
 
@@ -89,6 +90,7 @@ if __name__ == "__main__":
         accelerator,
         early_stopping=True,
         early_stopping_epochs=train_args.early_stop_epochs,
+        early_stopping_threshold=train_args.early_stop_threshold,
         save_best=True,
     )  # type: ignore
     res = model.load_state_dict(

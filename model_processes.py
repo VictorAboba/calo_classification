@@ -30,11 +30,13 @@ def train(
     accelerator: Accelerator | None = None,
     early_stopping=False,
     early_stopping_epochs=5,
+    early_stopping_threshold=0.01,
     save_best=False,
-) -> dict | tuple[dict, float]:
+) -> tuple[dict, int | float]:
     experiment_config = yaml.load(open(EXPERIMENT_CONFIG_FILE, "r"), yaml.FullLoader)
 
     best_val_loss = float("inf")
+    early_stopping_loss = float("inf")
     best_epoch = 0
     epochs_without_upgrade = 0
 
@@ -85,31 +87,31 @@ def train(
         statistic["train"].append(round(train_loss_sum / i, 5))
         statistic["val"].append(val_metrics)
 
+        if save_best and best_val_loss > val_metrics["loss"]:
+            best_val_loss = val_metrics["loss"]
+            if accelerator is not None:
+                accelerator.wait_for_everyone()
+                unwrap_model = accelerator.unwrap_model(model)
+                accelerator.save(
+                    unwrap_model.state_dict(),
+                    f"best_{experiment_config['prefix']}.pt",
+                )
+            else:
+                torch.save(model.state_dict(), f"best_{experiment_config['prefix']}.pt")
+
         if early_stopping:
-            if best_val_loss > val_metrics["loss"]:
-                best_val_loss = val_metrics["loss"]
+            if early_stopping_loss - val_metrics["loss"] > early_stopping_threshold:
+                early_stopping_loss = val_metrics["loss"]
                 best_epoch = epoch
                 epochs_without_upgrade = 0
-                if save_best:
-                    if accelerator is not None:
-                        accelerator.wait_for_everyone()
-                        unwrap_model = accelerator.unwrap_model(model)
-                        accelerator.save(
-                            unwrap_model.state_dict(),
-                            f"best_{experiment_config['prefix']}.pt",
-                        )
-                    else:
-                        torch.save(
-                            model.state_dict(), f"best_{experiment_config['prefix']}.pt"
-                        )
             else:
                 epochs_without_upgrade += 1
             if epochs_without_upgrade >= early_stopping_epochs:
                 print(f"{'=' * 50} Early stopping on {epoch} epoch {'=' * 50}")
                 print(f"Best epoch: {best_epoch}")
-                return statistic, best_val_loss
+                return statistic, early_stopping_loss
 
-    return statistic
+    return statistic, val_metrics["loss"]
 
 
 def inference(

@@ -15,11 +15,11 @@ p:
 up_scale:
   type: int
   min: 2
-  max: 8
+  max: 5
 n_layers:
   type: int
   min: 3
-  max: 20
+  max: 13
 lr:
   type: float
   min: 1e-6
@@ -46,5 +46,5 @@ num_epoch:
   max: 100
 batch_size:
   type: int
-  min: 1
-  max: 33
+  min: 16
+  max: 32
