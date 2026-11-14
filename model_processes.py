@@ -14,10 +14,32 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from accelerate import Accelerator
+from accelerate.data_loader import DataLoaderDispatcher, DataLoaderShard
 from tqdm import tqdm
 import numpy as np
 
 from constants import CLASS_TO_NAME, EXPERIMENT_CONFIG_FILE
+
+
+def _prepare_once(
+    accelerator: Accelerator, model: nn.Module, dataloader: DataLoader
+) -> tuple[nn.Module, DataLoader]:
+    """accelerator.prepare() only for objects that have not been prepared yet.
+
+    Re-preparing on every validation call stacks one more autocast wrapper on
+    model.forward per epoch and creates a new DataLoader each time, which leaks
+    worker processes when persistent_workers is on.
+    """
+    unwrapped = accelerator.unwrap_model(model, keep_torch_compile=False)
+    model_is_prepared = (
+        unwrapped is not model  # wrapped in DDP / torch.compile
+        or hasattr(model, "_original_forward")  # forward already wrapped with autocast
+    )
+    if not model_is_prepared:
+        model = accelerator.prepare(model)
+    if not isinstance(dataloader, (DataLoaderShard, DataLoaderDispatcher)):
+        dataloader = accelerator.prepare(dataloader)
+    return model, dataloader
 
 
 def train(
@@ -123,7 +145,7 @@ def inference(
     total_labels = []
     loss_fn = nn.CrossEntropyLoss(reduction="sum")
     if accelerator is not None:
-        model, dataloader = accelerator.prepare(model, dataloader)
+        model, dataloader = _prepare_once(accelerator, model, dataloader)
 
     with torch.no_grad():
         pbar = tqdm(dataloader, desc="Inference")
@@ -175,7 +197,7 @@ def predict(
     model: nn.Module, dataloader: DataLoader, accelerator: Accelerator | None = None
 ) -> tuple[np.ndarray, list[str]]:
     if accelerator is not None:
-        model, dataloader = accelerator.prepare(model, dataloader)
+        model, dataloader = _prepare_once(accelerator, model, dataloader)
 
     predictions = []
     with torch.no_grad():
