@@ -1,7 +1,9 @@
+# image is 120 (W) x 30 (H), patch size = 120 / h_split must divide both sides:
+# h_split in [4, 8, 12, 20, 24, 40, 60, 120]; v_split and input_dim are recomputed from it
 input_dim: 200
 out_dim: 3
-h_split: 10
-v_split: 10
+h_split: 12
+v_split: 3
 n_heads: 8
 hid_dim: 128
 p: 0.05

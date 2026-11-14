@@ -43,7 +43,20 @@ if __name__ == "__main__":
     model_config = ViTConfig.model_validate(
         yaml.load(open(MODEL_CONFIG_FILE, "r"), yaml.FullLoader)
     )
-    patch_size = int(TARGET_SHAPE[0] / model_config.h_split)
+    # the (W=120, H=30) image is cut into square patches: patch size must divide both sides
+    width, height = TARGET_SHAPE
+    patch_size = width // model_config.h_split
+    if width % model_config.h_split or height % patch_size:
+        valid = [
+            width // p
+            for p in range(1, height + 1)
+            if height % p == 0 and width % p == 0
+        ]
+        raise ValueError(
+            f"h_split={model_config.h_split} does not give a square patch dividing the "
+            f"{width}x{height} image, use one of {valid}"
+        )
+    model_config.v_split = height // patch_size
     model_config.input_dim = patch_size**2 * NUM_CHANNELS
     model = CustomViT(model_config)
 
@@ -85,7 +98,7 @@ if __name__ == "__main__":
     )
 
     accelerator = build_accelerator(hw_profile)
-    train_result: dict = train(
+    train_result, _ = train(
         model,
         optimizer,
         scheduler,
@@ -97,17 +110,19 @@ if __name__ == "__main__":
         early_stopping_epochs=train_args.early_stop_epochs,
         early_stopping_threshold=train_args.early_stop_threshold,
         save_best=True,
-    )  # type: ignore
+    )
+    # with several processes the main one may still be writing the checkpoint
+    accelerator.wait_for_everyone()
     res = model.load_state_dict(
         torch.load(
             f"best_{experiment_config['prefix']}.pt", map_location=accelerator.device
         )
     )
-    print(res)
+    accelerator.print(res)
     test_result = inference(model, test_dataloader, accelerator)
     train_result["test"] = test_result
 
-    os.makedirs("models", exist_ok=True)
-
-    with open(f"models/best_trial_{experiment_config['prefix']}.json", "w") as file:
-        json.dump(train_result, file, indent=2)
+    if accelerator.is_main_process:
+        os.makedirs("models", exist_ok=True)
+        with open(f"models/best_trial_{experiment_config['prefix']}.json", "w") as file:
+            json.dump(train_result, file, indent=2)

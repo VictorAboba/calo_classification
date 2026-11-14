@@ -170,9 +170,10 @@ Edit the `*_config.yaml` files to set your parameters:
 | `optuna_config.yaml` | Hyperparameter search space (`int`, `float` with optional log scale, or a `list` of values) |
 | `accelerate_config.yaml` | Accelerate launch configuration (process topology) |
 
-Notes on `model_config.yaml`: the image is `30 x 120` (H x W), so the patch size must divide both
-(5, 10, 15 or 30); `h_split = 120 / patch_size`, `v_split = 30 / patch_size`, `hid_dim` must be
-divisible by `n_heads`. `input_dim` is recomputed as `2 * patch_size²`.
+Notes on `model_config.yaml`: the image is `30 x 120` (H x W) and the patch size is
+`120 / h_split`; it must divide both sides, so `h_split` is one of 4, 8, 12, 20, 24, 40, 60, 120
+(patch 30, 15, 10, 6, 5, 3, 2, 1). `v_split = 30 / patch_size` and `input_dim = 2 * patch_size²`
+are recomputed automatically; `hid_dim` must be divisible by `n_heads`.
 
 ## Usage
 
