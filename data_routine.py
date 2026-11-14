@@ -48,7 +48,8 @@ def images_to_patches(
         .values.unsqueeze(-1)
         .expand_as(images)
     )  # find max value in each image by batch dimension
-    images = images / maxes
+    # an event without hits is an all-zero image: keep it zero instead of 0/0 = NaN
+    images = images / torch.where(maxes > 0, maxes, torch.ones_like(maxes))
 
     return images.to(torch.float32)
 
