@@ -100,7 +100,7 @@ mixed precision : bf16
 tf32 matmul     : on
 torch.compile   : off
 fused AdamW     : on
-dataloader      : num_workers=8, pin_memory=on
+dataloader      : num_workers=4, pin_memory=on
 note            : torch.compile is off: triton is not installed
 ==================================================
 ```
