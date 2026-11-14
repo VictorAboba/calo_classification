@@ -74,6 +74,7 @@ def train(
     for epoch in range(1, num_epoch + 1):
         print(f"{'=' * 50} Epoch {epoch} {'=' * 50}")
 
+        model.train()  # inference() switches the model to eval mode
         train_loss_sum = 0
         pbar = tqdm(train_dataloader, desc="Train epoch")
         for i, batch in enumerate(pbar, 1):
@@ -113,7 +114,8 @@ def train(
             best_val_loss = val_metrics["loss"]
             if accelerator is not None:
                 accelerator.wait_for_everyone()
-                unwrap_model = accelerator.unwrap_model(model)
+                # without torch.compile's wrapper, otherwise keys get the "_orig_mod." prefix
+                unwrap_model = accelerator.unwrap_model(model, keep_torch_compile=False)
                 accelerator.save(
                     unwrap_model.state_dict(),
                     f"best_{experiment_config['prefix']}.pt",
@@ -146,6 +148,7 @@ def inference(
     loss_fn = nn.CrossEntropyLoss(reduction="sum")
     if accelerator is not None:
         model, dataloader = _prepare_once(accelerator, model, dataloader)
+    model.eval()  # disable dropout
 
     with torch.no_grad():
         pbar = tqdm(dataloader, desc="Inference")
@@ -198,6 +201,7 @@ def predict(
 ) -> tuple[np.ndarray, list[str]]:
     if accelerator is not None:
         model, dataloader = _prepare_once(accelerator, model, dataloader)
+    model.eval()  # disable dropout
 
     predictions = []
     with torch.no_grad():
