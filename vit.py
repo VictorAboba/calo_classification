@@ -30,18 +30,16 @@ class AttentionBlock(nn.Module):
         v = self.v_proj(x)
 
         q = self.q_norm(q.view(B, L, self.n_heads, self.head_dim)).permute(0, 2, 1, 3)
-        kT = self.k_norm(k.view(B, L, self.n_heads, self.head_dim)).permute(0, 2, 3, 1)
+        k = self.k_norm(k.view(B, L, self.n_heads, self.head_dim)).permute(0, 2, 1, 3)
         v = v.view(B, L, self.n_heads, self.head_dim).permute(0, 2, 1, 3)
 
-        scale = self.head_dim**0.5
-
-        atten_weights = F.softmax((q @ kT) / scale, dim=-1)
-
-        output = self.o_proj(
-            (F.dropout(atten_weights, p=self.p, training=self.training) @ v)
-            .permute(0, 2, 1, 3)
-            .reshape(B, L, hid_dim)
+        # softmax(q k^T / sqrt(head_dim)) with dropout on the weights, @ v.
+        # SDPA dispatches to the fastest kernel for the device (flash / memory-efficient / math)
+        atten_output = F.scaled_dot_product_attention(
+            q, k, v, dropout_p=self.p if self.training else 0.0
         )
+
+        output = self.o_proj(atten_output.permute(0, 2, 1, 3).reshape(B, L, hid_dim))
 
         return output
 
