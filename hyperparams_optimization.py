@@ -5,13 +5,13 @@ import json
 import os
 
 from optuna import create_study, Trial, TrialPruned
-from accelerate import Accelerator
 from torch.optim import AdamW
 from transformers import get_cosine_schedule_with_warmup
 
 from vit import CustomViT
 from data_routine import get_dataloader_from_path
 from data_schemes import ViTConfig, OptimizerConfig
+from hardware import setup_hardware, build_accelerator
 from model_processes import train, inference
 from optuna_utils import create_trial_from_dict
 from constants import (
@@ -50,6 +50,8 @@ def run_train_in_process(trial: Trial):
 
 def run_train(trial_params: dict, trial_num, q):
     experiment_config = yaml.load(open(EXPERIMENT_CONFIG_FILE, "r"), yaml.FullLoader)
+    # detection runs in the trial subprocess so the parent never initializes the GPU
+    _, hw_profile = setup_hardware(experiment_config.get("hardware"))
     model_config = ViTConfig.model_validate(trial_params)
     patch_size = trial_params.pop("patch_size")
     model_config.input_dim = patch_size**2 * NUM_CHANNELS
@@ -58,6 +60,7 @@ def run_train(trial_params: dict, trial_num, q):
     model = CustomViT(model_config)
 
     optimizer_config = OptimizerConfig.model_validate(trial_params)
+    optimizer_config.fused = hw_profile.fused_optimizer
     optimizer = AdamW(model.parameters(), **optimizer_config.to_dict())
 
     train_dataloader = get_dataloader_from_path(
@@ -65,18 +68,21 @@ def run_train(trial_params: dict, trial_num, q):
         patch_size,
         False,
         trial_params["batch_size"],
+        **hw_profile.dataloader_kwargs(),
     )
     val_dataloader = get_dataloader_from_path(
         experiment_config["val_data"],
         patch_size,
         False,
         trial_params["batch_size"],
+        **hw_profile.dataloader_kwargs(),
     )
     test_dataloader = get_dataloader_from_path(
         experiment_config["test_data"],
         patch_size,
         False,
         trial_params["batch_size"],
+        **hw_profile.dataloader_kwargs(),
     )
 
     total_train_steps = (
@@ -88,7 +94,7 @@ def run_train(trial_params: dict, trial_num, q):
         optimizer, num_training_steps=total_train_steps, num_warmup_steps=warmup_steps
     )
 
-    accelerator = Accelerator()
+    accelerator = build_accelerator(hw_profile)
     try:
         train_result, best_val_loss = train(
             model,

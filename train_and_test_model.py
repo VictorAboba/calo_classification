@@ -4,7 +4,6 @@ import json
 import argparse
 import os
 
-from accelerate import Accelerator
 from torch.optim import AdamW
 import torch
 from transformers import get_cosine_schedule_with_warmup
@@ -12,6 +11,7 @@ from transformers import get_cosine_schedule_with_warmup
 from vit import CustomViT
 from data_routine import get_dataloader_from_path
 from data_schemes import ViTConfig, OptimizerConfig
+from hardware import setup_hardware, build_accelerator
 from model_processes import train, inference
 from constants import (
     MODEL_CONFIG_FILE,
@@ -38,6 +38,7 @@ if __name__ == "__main__":
     train_args = parse_args()
 
     experiment_config = yaml.load(open(EXPERIMENT_CONFIG_FILE, "r"), yaml.FullLoader)
+    _, hw_profile = setup_hardware(experiment_config.get("hardware"))
 
     model_config = ViTConfig.model_validate(
         yaml.load(open(MODEL_CONFIG_FILE, "r"), yaml.FullLoader)
@@ -49,6 +50,7 @@ if __name__ == "__main__":
     optimizer_config = OptimizerConfig.model_validate(
         yaml.load(open(OPTIMIZER_CONFIG_FILE, "r"), yaml.FullLoader)
     )
+    optimizer_config.fused = hw_profile.fused_optimizer
     optimizer = AdamW(model.parameters(), **optimizer_config.to_dict())
 
     train_dataloader = get_dataloader_from_path(
@@ -56,18 +58,21 @@ if __name__ == "__main__":
         patch_size,
         False,
         train_args.batch_size,
+        **hw_profile.dataloader_kwargs(),
     )
     val_dataloader = get_dataloader_from_path(
         experiment_config["val_data"],
         patch_size,
         False,
         train_args.batch_size,
+        **hw_profile.dataloader_kwargs(),
     )
     test_dataloader = get_dataloader_from_path(
         experiment_config["test_data"],
         patch_size,
         False,
         train_args.batch_size,
+        **hw_profile.dataloader_kwargs(),
     )
 
     total_train_steps = (
@@ -79,7 +84,7 @@ if __name__ == "__main__":
         optimizer, num_training_steps=total_train_steps, num_warmup_steps=warmup_steps
     )
 
-    accelerator = Accelerator()
+    accelerator = build_accelerator(hw_profile)
     train_result: dict = train(
         model,
         optimizer,

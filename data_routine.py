@@ -103,8 +103,16 @@ def collate_fn(batch: list[dict], patch_size: int) -> tuple[torch.Tensor, torch.
 
 
 def get_dataloader_from_path(
-    path_to_parquet_file, patch_size, streaming, batch_size, num_workers=5
+    path_to_parquet_file,
+    patch_size,
+    streaming,
+    batch_size,
+    num_workers=5,
+    pin_memory=False,
+    persistent_workers=False,
+    prefetch_factor=None,
 ) -> DataLoader:
+    """Extra DataLoader arguments come from `TrainingProfile.dataloader_kwargs()` (hardware.py)."""
     dataset = load_dataset(
         "parquet", data_files=path_to_parquet_file, streaming=streaming
     )["train"]
@@ -117,6 +125,9 @@ def get_dataloader_from_path(
         collate_fn=collate_fn_with_patch_size,
         shuffle=True,
         num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=persistent_workers and num_workers > 0,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None,
     )
 
     return dataloader

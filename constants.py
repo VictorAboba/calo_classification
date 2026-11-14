@@ -3,6 +3,7 @@ NAME_TO_CLASS = {"antiproton": 0, "proton": 1, "pion+": 2}
 CLASS_TO_NAME = {v: k for k, v in NAME_TO_CLASS.items()}
 
 EXPERIMENT_CONFIG_FILE = "experiment_config.yaml"
+ACCELERATE_CONFIG_FILE = "accelerate_config.yaml"
 
 MODEL_CONFIG_FILE = "model_config.yaml"
 OPTIMIZER_CONFIG_FILE = "optimizer_config.yaml"

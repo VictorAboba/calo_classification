@@ -1,3 +1,6 @@
+# Process topology for `accelerate launch`. mixed_precision and dynamo_config below are
+# overridden by the `hardware` section of experiment_config.yaml (see hardware.py).
+# Regenerate for the current machine: uv run python hardware.py --write-accelerate-config
 compute_environment: LOCAL_MACHINE
 debug: false
 distributed_type: 'NO'

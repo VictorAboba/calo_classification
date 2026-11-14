@@ -1,5 +1,21 @@
-from pydantic import BaseModel, Field
-from typing import Generator, Tuple, Any
+from pydantic import BaseModel, Field, field_validator
+from typing import Generator, Tuple, Any, Literal
+
+
+class HardwareConfig(BaseModel):
+    """`hardware` section of experiment_config.yaml; "auto" = pick for detected hardware."""
+
+    device: Literal["auto", "cpu"] = "auto"
+    mixed_precision: Literal["auto", "no", "fp16", "bf16"] = "auto"
+    compile: bool | Literal["auto"] = "auto"
+    tf32: bool | Literal["auto"] = "auto"
+    num_workers: int | Literal["auto"] = Field(default="auto")
+
+    @field_validator("mixed_precision", mode="before")
+    @classmethod
+    def _yaml_no_is_false(cls, v):
+        # YAML 1.1 parses a bare `no` as False
+        return "no" if v is False else v
 
 
 class ViTConfig(BaseModel):

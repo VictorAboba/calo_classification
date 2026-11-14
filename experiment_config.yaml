@@ -9,3 +9,11 @@ optuna:
 train_data: dataset/80_360_MeV_parquet/dataset_train.parquet
 val_data: dataset/80_360_MeV_parquet/dataset_val.parquet
 test_data: dataset/80_360_MeV_parquet/dataset_test.parquet
+
+# Hardware-dependent settings (see hardware.py). "auto" = chosen for the detected hardware
+hardware:
+  device: auto           # auto | cpu (force CPU even if a GPU is present)
+  mixed_precision: auto  # auto | 'no' | fp16 | bf16
+  compile: auto          # auto | true | false  (torch.compile with inductor)
+  tf32: auto             # auto | true | false  (TF32 matmuls, NVIDIA Ampere+)
+  num_workers: auto      # auto | <int>         (DataLoader workers per process)
